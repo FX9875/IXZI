@@ -1,1 +1,188 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ฟอร์มลงทะเบียนผู้ใช้</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen py-8">
+    <div class="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">ลงทะเบียนผู้ใช้</h1>
+            <p class="text-gray-600">กรอกข้อมูลเพื่อสร้างบัญชีใหม่</p>
+        </div>
 
+        <form id="registrationForm" class="space-y-6">
+            <div>
+                <label for="firstName" class="block text-sm font-medium text-gray-700 mb-2">ชื่อ</label>
+                <input type="text" id="firstName" name="firstName" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
+            </div>
+
+            <div>
+                <label for="lastName" class="block text-sm font-medium text-gray-700 mb-2">นามสกุล</label>
+                <input type="text" id="lastName" name="lastName" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
+            </div>
+
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้ใช้</label>
+                <input type="text" id="username" name="username" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">รหัสผ่าน</label>
+                <input type="password" id="password" name="password" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200">
+            </div>
+
+            <div>
+                <label for="profileImage" class="block text-sm font-medium text-gray-700 mb-2">รูปโปรไฟล์</label>
+                <input type="file" id="profileImage" name="profileImage" accept="image/*"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <div id="imagePreview" class="mt-3 hidden">
+                    <img id="previewImg" src="" alt="Preview" class="w-20 h-20 rounded-full object-cover border-2 border-gray-200">
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center">
+                <span id="submitText">ลงทะเบียน</span>
+                <div id="loadingSpinner" class="loading ml-2 hidden"></div>
+            </button>
+        </form>
+
+        <div id="statusMessage" class="mt-4 p-4 rounded-lg hidden">
+            <p id="statusText" class="text-center font-medium"></p>
+        </div>
+    </div>
+
+    <script>
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFbSu-kOXSJuQmikVGOHAgIsQd3hUSI6tHpA7zTKMnXucLbw3RLJcy3S5jzodb9iNIiQ/exec';
+        
+        // Preview image when selected
+        document.getElementById('profileImage').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('imagePreview').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Convert file to base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+                    resolve(base64);
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Show status message
+        function showStatus(message, isSuccess = true) {
+            const statusDiv = document.getElementById('statusMessage');
+            const statusText = document.getElementById('statusText');
+            
+            statusText.textContent = message;
+            statusDiv.className = `mt-4 p-4 rounded-lg ${isSuccess ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+            statusDiv.classList.remove('hidden');
+        }
+
+        // Show loading state
+        function setLoading(isLoading) {
+            const submitBtn = document.getElementById('submitBtn');
+            const submitText = document.getElementById('submitText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            
+            if (isLoading) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                submitText.textContent = 'กำลังบันทึก...';
+                loadingSpinner.classList.remove('hidden');
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                submitText.textContent = 'ลงทะเบียน';
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('registrationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            setLoading(true);
+            document.getElementById('statusMessage').classList.add('hidden');
+            
+            try {
+                const formData = new FormData(e.target);
+                const profileImageFile = document.getElementById('profileImage').files[0];
+                
+                // Prepare data for URLSearchParams
+                const params = new URLSearchParams();
+                params.append('firstName', formData.get('firstName'));
+                params.append('lastName', formData.get('lastName'));
+                params.append('username', formData.get('username'));
+                params.append('password', formData.get('password'));
+                
+                // Handle profile image if selected
+                if (profileImageFile) {
+                    const base64Data = await fileToBase64(profileImageFile);
+                    params.append('profileImageData', base64Data);
+                    params.append('profileImageName', profileImageFile.name);
+                    params.append('profileImageType', profileImageFile.type);
+                }
+                
+                // Send to Apps Script
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: params.toString()
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('ลงทะเบียนสำเร็จ! ข้อมูลได้ถูกบันทึกแล้ว', true);
+                    document.getElementById('registrationForm').reset();
+                    document.getElementById('imagePreview').classList.add('hidden');
+                } else {
+                    showStatus('เกิดข้อผิดพลาด: ' + (result.error || 'ไม่สามารถบันทึกข้อมูลได้'), false);
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง', false);
+            } finally {
+                setLoading(false);
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'967bb286765b7335',t:'MTc1Mzk1MDI0NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
